@@ -33,7 +33,7 @@ The core value of this project is overcoming complex, non-intuitive networking a
 
 ---
 
-### 🛠️ Installation & Usage Guide
+# 🛠️ Installation & Usage Guide
 
 ## 1.Clone & Prepare the Environment
  Assuming you have Python 3.x and Git installed, use these commands:
@@ -51,26 +51,26 @@ pip install cryptography requests
 
 ## 3.Python 3.x Installation
  If you don't have Python installed, use the commands below for your operating system.
-# Windows
+### Windows
 ```bash
 winget install Python.Python.3.11
 ```
-# Kali Linux / Debian
+### Kali Linux / Debian
 ```bash
 sudo apt update && sudo apt install python3 python3-pip -y
 ```
 
 ## 3. Set Up a Target (Choose Your Lab)
  Bugscope is ready to test any authorized web application.
-# Local Lab:
+### Local Lab:
 ```bash
 docker run -d -p 3000:3000 bkimminich/juice-shop
 ```
-# External Target
+### External Target
 ```text
  No specific command needed; simply browse to the target's URL
 ```
-# CRITICAL: Ensure you have explicit, written permission to test the target website.
+### CRITICAL: Ensure you have explicit, written permission to test the target website.
 
 ## 4.Trust the Certificate (Essential for HTTPS)
 Import the root certificate to avoid security warnings:
@@ -83,7 +83,7 @@ Import the root certificate to avoid security warnings:
 
 ## 5.Run the Proxy and Configure Browser
 ```Bash
-# Start the Bugscope Proxy
+### Start the Bugscope Proxy
 python proxies/main_educational.py
 ```
  Browser Configuration: Set your manual proxy to your system's IP address (e.g., 192.168.1.5) on port 8080.
@@ -93,31 +93,32 @@ Once your assessment is complete, generate the analysis report:
 
 ```Bash
 
-# 1. Stop the proxy by pressing Ctrl+C
+## 1. Stop the proxy by pressing Ctrl+C
 
-# 2. Run the analysis script
+## 2. Run the analysis script
 python analysis/report.py
 
 ```
-# View Report:
+## View Report:
  The terminal will provide the exact notepad command needed to open the final, filtered security report.
 
----END--
+## ⚠️ Disclaimer (MANDATORY)
+This software, **Bugscope**, is developed and provided strictly for **educational, ethical hacking, and authorized security research purposes only**.
 
+By downloading and using this tool, the user agrees to:
 
+Use Bugscope only on systems they own (e.g., localhost).
 
+Use Bugscope only on test targets where they have explicit, **written permission to conduct security testing** (e.g., platforms like OWASP Juice Shop, or authorized Bug Bounty programs).
 
+The author is **not responsible** for any misuse or illegal activity resulting from the use of this software.
 
+## 🙋‍♂️ Author & Contribution
 
+**Project Author:** **Muhammad Aqib Tayyab**
 
+**LinkedIn Profile:** https://www.linkedin.com/in/muhammad-aqib-tayyab-815499348/
 
+**GitHub Profile:** https://github.com/AqibTayyab
 
-
-
-```bash
-
-```
-
-```bash
-
-```
+Feel free to fork, star, and contribute to this educational tool.
