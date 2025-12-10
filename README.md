@@ -70,7 +70,7 @@ docker run -d -p 3000:3000 bkimminich/juice-shop
 ```text
  No specific command needed; simply browse to the target's URL
 ```
-### CRITICAL: Ensure you have explicit, written permission to test the target website.
+## CRITICAL: Ensure you have explicit, written permission to test the target website.
 
 ## 4.Trust the Certificate (Essential for HTTPS)
 Import the root certificate to avoid security warnings:
@@ -83,7 +83,7 @@ Import the root certificate to avoid security warnings:
 
 ## 5.Run the Proxy and Configure Browser
 ```Bash
-### Start the Bugscope Proxy
+### Make sure you are in proxies folder and Start the Bugscope Proxy
 python proxies/main_educational.py
 ```
  Browser Configuration: Set your manual proxy to your system's IP address (e.g., 192.168.1.5) on port 8080.
@@ -95,7 +95,7 @@ Once your assessment is complete, generate the analysis report:
 
 ## 1. Stop the proxy by pressing Ctrl+C
 
-## 2. Run the analysis script
+## 2. Make sure you are in report folder Run the analysis script
 python analysis/report.py
 
 ```
