@@ -1,0 +1,12 @@
+A. The requirements.txt Content
+This is the content that must be present in your requirements.txt file:
+
+cryptography>=41.0.0
+requests>=2.31.0
+
+B. Installation Command
+Navigate to your project folder (Bugscope-Security-Proxy) and run this command to install the required libraries:
+
+pip install -r requirements.txt
+
+This specific versioning ensures maximum compatibility and stability for the user, matching the robust nature of your final code.
