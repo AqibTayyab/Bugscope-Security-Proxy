@@ -1,0 +1,51 @@
+﻿# -------------------------------------------------------------------
+# 1. PYTHON AND DEPENDENCIES (Standard Cleanup)
+# -------------------------------------------------------------------
+# Bytecode and Cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.env/
+.venv/
+venv/
+ENV/
+
+# -------------------------------------------------------------------
+# 2. IDE AND OS FILES (Standard Cleanup)
+# -------------------------------------------------------------------
+# IDE files (VS Code, IntelliJ, Swap files)
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+*.log
+logs/
+
+# -------------------------------------------------------------------
+# 3. BUGSCOPE PROJECT SPECIFIC (CRITICAL SECURITY)
+# -------------------------------------------------------------------
+
+# CRITICAL: PRIVATE KEYS AND SENSITIVE CERTIFICATE FILES
+# The private key MUST NOT be uploaded.
+certificates/*.key
+certificates/*.pem
+certificates/*.p12      # <-- MUST IGNORE the P12 file after generation!
+certificates/*.pfx
+certificates/*.crt
+
+# CRITICAL: CAPTURED SESSION DATA (Where the API Key was logged)
+data/*.json             # <-- Ignores ALL captured session files
+data/*.db
+data/*.sqlite
+
+# REPORTS AND TEMP FILES
+# We generally want to ignore auto-generated report files
+reports/*.md
+reports/*.txt
