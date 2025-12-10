@@ -83,7 +83,7 @@ Import the root certificate to avoid security warnings:
 
 ## 5.Run the Proxy and Configure Browser
 ```Bash
-### Make sure you are in proxies folder and Start the Bugscope Proxy
+### Start the Bugscope Proxy
 python proxies/main_educational.py
 ```
  Browser Configuration: Set your manual proxy to your system's IP address (e.g., 192.168.1.5) on port 8080.
@@ -94,8 +94,9 @@ Once your assessment is complete, generate the analysis report:
 ```Bash
 
 ## 1. Stop the proxy by pressing Ctrl+C
+## If Program doesnt stop by pressing Ctrl+C , then close and reopen firefox, It will stop the program.
 
-## 2. Make sure you are in report folder Run the analysis script
+## 2. Run the analysis script
 python analysis/report.py
 
 ```
