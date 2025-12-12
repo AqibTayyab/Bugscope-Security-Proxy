@@ -35,7 +35,7 @@ The core value of this project is overcoming complex, non-intuitive networking a
 
 # 🛠️ Installation & Usage Guide
 
-## 1.Clone & Prepare the Environment
+## 1. Clone & Prepare the Environment
  Assuming you have Python 3.x and Git installed, use these commands:
 ```bash
 git clone https://github.com/AqibTayyab/Bugscope-Security-Proxy.git
@@ -43,76 +43,129 @@ git clone https://github.com/AqibTayyab/Bugscope-Security-Proxy.git
 ```bash
 cd Bugscope-Security-Proxy
 ```
-
-## 2.Install Dependencies (Networking and Cryptography)
 ```bash
 pip install cryptography requests
 ```
 
-## 3.Python 3.x Installation
- If you don't have Python installed, use the commands below for your operating system.
-### Windows
+## 2. Set Up Test Target
+**Option A: Local Lab (Recommended)**
+```bash
+docker run -d -p 3000:3000 bkimminich/juice-shop
+```
+Visit: http://localhost:3000
+
+**Option B: External Target**
+Simply browse to your authorized target's URL.
+
+**⚠️ CRITICAL:** Ensure you have explicit, written permission to test the target website.
+
+## 3. Certificate Setup (Essential for HTTPS)
+1. Locate certificates/ca-cert.p12 in the cloned folder
+2. In Firefox: Settings → Privacy & Security → View Certificates → Import
+3. Select the .p12 file and check "Trust this CA to identify websites"
+
+
+## 4.  Run Proxy & Configure Browser
+ Bugscope is ready to test any authorized web application.
+```bash
+python proxies/main_educational.py
+```
+**Browser Configuration:**
+1. Set manual proxy to your system's IP address (e.g., 192.168.1.5)
+2. Port: 8080
+3. ✅ Also use this proxy for HTTPS
+
+## 5. Capture Traffic & Generate Report
+1. **Perform your security testing**
+2. **Stop the proxy** by pressing Ctrl+C
+ If program doesn't stop, close and reopen Firefox
+3. **Generate analysis report:**
+```bash
+python analysis/report.py
+```
+4. **View Report**: Terminal provides the exact command to open the final, filtered security report
+
+## 📊 Sample Terminal Output
+```text
+🔓 [HTTPS] POST testphp.vulnweb.com/login.php
+   📚 Authentication endpoint detected
+   💡 Try: Test SQL injection: ' OR '1'='1
+   🔥 Severity: Critical
+   ✅ Response: 200
+```
+
+## 📁 Project Architecture
+```text
+Bugscope-Security-Proxy/
+├── proxies/
+│   └── main_educational.py    # Main proxy server
+├── analysis/
+│   ├── report.py              # Report generator
+│   └── explainer_db.py        # Vulnerability database (15+ patterns)
+├── certificates/
+│   ├── ca-cert.p12            # Root certificate
+│   └── ca-key.pem             # Private key
+├── data/                      # Session logs
+├── reports/                   # Generated security reports
+└── requirements.txt           # Python dependencies
+```
+## 🔧 Key Features
+
+✅ HTTPS Interception & Decryption - Full MITM capability
+
+✅ Real-Time Vulnerability Detection - SQLi, XSS, authentication flaws
+
+✅ Educational Explanations - Learn as you test
+
+✅ Intelligent Filtering - Clean reports focused on security findings
+
+✅ Multi-Threaded Architecture - Handle concurrent connections
+
+✅ Professional Reporting - Generate actionable security reports
+
+## 🎓 Learning Outcomes
+By using Bugscope, you'll understand:
+
+1. **How MITM proxies work** at the protocol level
+2. **HTTPS decryption** and certificate trust chains
+3. **Common vulnerability patterns** in web applications
+4. **Professional security assessment** workflow
+5. **Traffic analysis** and pattern recognition
+
+
+## ⚠️ Legal & Ethical Use (MANDATORY)
+**This software, Bugscope, is developed and provided strictly for educational, ethical hacking, and authorized security research purposes only.**
+
+By downloading and using this tool, the user agrees to:
+
+1. **Use Bugscope only on systems they own** (e.g., localhost)
+
+2. **Use Bugscope only on test targets where they have explicit, written permission** to conduct security testing (e.g., platforms like OWASP Juice Shop, or authorized Bug Bounty programs)
+
+3. Comply with all applicable laws and regulations
+
+**The author is not responsible for any misuse or illegal activity resulting from the use of this software**.
+
+## 🛠️ Prerequisites Installation
+### Python 3.x Installation
+If you don't have Python installed, use the commands below for your operating system.
+
+**Windows**
 ```bash
 winget install Python.Python.3.11
 ```
-### Kali Linux / Debian
+**Kali Linux / Debian**
 ```bash
 sudo apt update && sudo apt install python3 python3-pip -y
 ```
 
-## 3. Set Up a Target (Choose Your Lab)
- Bugscope is ready to test any authorized web application.
-### Local Lab:
-```bash
-docker run -d -p 3000:3000 bkimminich/juice-shop
-```
-### External Target
-```text
- No specific command needed; simply browse to the target's URL
-```
-## CRITICAL: Ensure you have explicit, written permission to test the target website.
+## 🤝 Contributing
+Feel free to fork, star, and contribute to this educational tool. Areas for improvement:
 
-## 4.Trust the Certificate (Essential for HTTPS)
-Import the root certificate to avoid security warnings:
-
- Locate certificates/ca-cert.p12 in the cloned folder.
-
- In Firefox, go to Settings > Privacy & Security > View Certificates > Import.
-
- Select the .p12 file and check "Trust this CA to identify websites."
-
-## 5.Run the Proxy and Configure Browser
-```Bash
-### Start the Bugscope Proxy
-python proxies/main_educational.py
-```
- Browser Configuration: Set your manual proxy to your system's IP address (e.g., 192.168.1.5) on port 8080.
-
-## 6. Capture Traffic & Generate Report (The Final Phase)
-Once your assessment is complete, generate the analysis report:
-
-```Bash
-
-## 1. Stop the proxy by pressing Ctrl+C
-## If Program doesnt stop by pressing Ctrl+C , then close and reopen firefox, It will stop the program.
-
-## 2. Run the analysis script
-python analysis/report.py
-
-```
-## View Report:
- The terminal will provide the exact notepad command needed to open the final, filtered security report.
-
-## ⚠️ Disclaimer (MANDATORY)
-This software, **Bugscope**, is developed and provided strictly for **educational, ethical hacking, and authorized security research purposes only**.
-
-By downloading and using this tool, the user agrees to:
-
-Use Bugscope only on systems they own (e.g., localhost).
-
-Use Bugscope only on test targets where they have explicit, **written permission to conduct security testing** (e.g., platforms like OWASP Juice Shop, or authorized Bug Bounty programs).
-
-The author is **not responsible** for any misuse or illegal activity resulting from the use of this software.
+1. Additional vulnerability patterns
+2. Enhanced reporting features
+3. User interface improvements
+4. Documentation updates
 
 ## 🙋‍♂️ Author & Contribution
 
@@ -121,5 +174,3 @@ The author is **not responsible** for any misuse or illegal activity resulting f
 **LinkedIn Profile:** https://www.linkedin.com/in/muhammad-aqib-tayyab-815499348/
 
 **GitHub Profile:** https://github.com/AqibTayyab
-
-Feel free to fork, star, and contribute to this educational tool.
