@@ -1,123 +1,121 @@
-# 🔥 Bugscope: Educational MITM Security Proxy (Python)
+# 🔥 Bugscope: Educational MITM Security Proxy (v2.0)
 
 ![Python](https://img.shields.io/badge/Python-3.x-blue?style=for-the-badge&logo=python)
-![Focus](https://img.shields.io/badge/Focus-Network%20Security%20&%20Pentesting-red?style=for-the-badge)
-![Status](https://img.shields.io/badge/Status-Project%20Complete-success?style=for-the-badge)
+![Database](https://img.shields.io/badge/Database-SQLite-informational?style=for-the-badge)
+![UI](https://img.shields.io/badge/UI-Flask_Dashboard-success?style=for-the-badge)
 ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
 
-**Bugscope** is a custom-built, highly robust, multi-threaded Man-in-the-Middle (MITM) proxy developed in Python to intercept, analyze, and verify web application vulnerabilities (SQL Injection, XSS, etc.) for ethical security education.
+**Bugscope v2.0** is a custom-built, multi-threaded Man-in-the-Middle (MITM) proxy developed in Python. Designed for educational purposes and Final Year Projects (FYP), it intercepts, analyzes, and verifies web application vulnerabilities using a Relational Database and a live Web Dashboard.
 
 ---
 
-## 🧠 Technical Case Study: Key Challenges Solved
+## 🚀 What's New in Version 2.0 (The FYP Upgrade)
 
-The core value of this project is overcoming complex, non-intuitive networking and data challenges that are often the hardest part of building custom security tools.
-
-### 1. The Outbound Firewall Bypass (Fixing 502 Errors)
-
-| Challenge | Technical Implementation | Outcome |
-| :--- | :--- | :--- |
-| **Raw Socket Blocking** | Local security firewalls blocked raw Python sockets, causing persistent `502 Bad Gateway` errors for external targets. | **Fixed:** Refactored the HTTP forwarding core to use the high-level **`requests` library**, which successfully bypassed the firewall's aggressive socket block. |
-
-### 2. Intelligent Report Filtering (Cleaning Telemetry Noise)
-
-| Challenge | Technical Implementation | Outcome |
-| :--- | :--- | :--- |
-| **Report Data Overload** | Browser telemetry requests (containing unique GUIDs) masked the actual security findings in the reports. | **Fixed:** Implemented **Intelligent Path Cleaning** using **Regular Expressions (Regex)** to replace unique IDs with a standardized token (`[GUID]`). Reports are now clean and focused. |
-
-### 3. Vulnerability Verification (The Final Proof)
-
-* **Finding:** Bugscope flagged the `/login.php` endpoint on a test site as **🔥 Critical Severity**.
-* **Action:** Executed the suggested **SQL Injection payload (`' OR '1'='1`)**.
-* **Result:** **SUCCESS.** Gained unauthorized access, verifying the Broken Authentication flaw and validating the tool's effectiveness.
+* **Relational Database (SQLite):** Replaced volatile JSON logging with a persistent, ACID-compliant SQLite database (`bugscope.db`) for historical auditing.
+* **Live Web Dashboard (Flask):** Added a real-time web UI to visualize intercepted traffic and highlight vulnerabilities instantly.
+* **Intelligent Noise Filter:** Implemented a Regex-based engine to automatically ignore background telemetry (Mozilla, Google, Microsoft) so analysts can focus on actual targets.
+* **Robust Core Engine:** Refactored the proxy to use the `requests` library, fixing outbound firewall blocks and 502 Bad Gateway errors.
 
 ---
+## 🛠️ Installation & Setup
 
-### 🛠️ Installation & Usage Guide
-
-## 1.Clone & Prepare the Environment
- Assuming you have Python 3.x and Git installed, use these commands:
-```bash
+### 1. Clone & Prepare the Environment
+Assuming you have Python 3.x and Git installed:
+```cmd
 git clone https://github.com/AqibTayyab/Bugscope-Security-Proxy.git
-```
-```bash
 cd Bugscope-Security-Proxy
 ```
-
-## 2.Install Dependencies (Networking and Cryptography)
-```bash
-pip install cryptography requests
+### 2. Install Dependencies
+Install the required networking, cryptography, and web framework libraries:
+```cmd
+pip install -r requirements.txt
 ```
+### 3. Trust the Certificate (Essential for HTTPS)
+1. Locate ```certificates/ca-cert.p12``` in the cloned folder.
+2. In Firefox: Go to **Settings → Privacy & Security → View Certificates → Import.**
+3. Select the ```.p12``` file and check "Trust this CA to identify websites".
 
-## 3.Python 3.x Installation
- If you don't have Python installed, use the commands below for your operating system.
-# Windows
-```bash
-winget install Python.Python.3.11
+---
+## 💻 How to Run the System (Dual-Window Setup)
+Bugscope v2.0 uses a decoupled, professional architecture. You need two Command Prompts running simultaneously.
+
+### Window 1: Start the Proxy Engine
+This captures the traffic and logs it to the database.
+```cmd
+python proxies\main_educational.py
 ```
-# Kali Linux / Debian
-```bash
-sudo apt update && sudo apt install python3 python3-pip -y
+Browser Configuration: Set your Firefox manual proxy to ```127.0.0.1``` on Port ```8080```. Ensure "Also use this proxy for HTTPS" is checked.
+
+### Window 2: Start the Admin Dashboard
+This provides the live graphical interface.
+```cmd
+python dashboard.py
 ```
+Open Chrome or Edge (without proxy settings) and navigate to ```http://127.0.0.1:5000``` to view live traffic and vulnerabilities as you browse.
 
-## 3. Set Up a Target (Choose Your Lab)
- Bugscope is ready to test any authorized web application.
-# Local Lab:
-```bash
-docker run -d -p 3000:3000 bkimminich/juice-shop
-```
-# External Target
-```text
- No specific command needed; simply browse to the target's URL
-```
-# CRITICAL: Ensure you have explicit, written permission to test the target website.
-
-## 4.Trust the Certificate (Essential for HTTPS)
-Import the root certificate to avoid security warnings:
-
- Locate certificates/ca-cert.p12 in the cloned folder.
-
- In Firefox, go to Settings > Privacy & Security > View Certificates > Import.
-
- Select the .p12 file and check "Trust this CA to identify websites."
-
-## 5.Run the Proxy and Configure Browser
+## 🐉 For Kali Linux / Debian Users
+### Terminal 1: Start the Proxy Engine
+This captures the traffic and logs it to the database.
 ```Bash
-# Start the Bugscope Proxy
-python proxies/main_educational.py
+python3 proxies/main_educational.py
 ```
- Browser Configuration: Set your manual proxy to your system's IP address (e.g., 192.168.1.5) on port 8080.
+Browser Configuration: Set your Firefox manual proxy to ```127.0.0.1``` on Port ```8080```. Ensure "Also use this proxy for HTTPS" is checked.
 
-## 6. Capture Traffic & Generate Report (The Final Phase)
-Once your assessment is complete, generate the analysis report:
-
+## Terminal 2: Start the Admin Dashboard
+This provides the live graphical interface.
 ```Bash
-
-# 1. Stop the proxy by pressing Ctrl+C
-
-# 2. Run the analysis script
-python analysis/report.py
-
+python3 dashboard.py
 ```
-# View Report:
- The terminal will provide the exact notepad command needed to open the final, filtered security report.
+Open your web browser (without proxy settings) and navigate to ```http://127.0.0.1:5000``` to view live traffic.
 
----END--
-
-
-
-
-
-
-
-
-
-
-
-```bash
-
+---
+## 📊 Generate Final Report
+When your testing session is complete, stop the proxy (Ctrl+C) and generate a professional Markdown summary:
+```cmd
+python report.py
 ```
+The final report will be saved in the ```reports/``` directory.
 
-```bash
-
+---
+## 📁 Project Architecture (v2.0)
+```Plaintext
+Bugscope-Security-Proxy/
+├── dashboard.py               # Web UI Dashboard (Flask)
+├── db_manager.py              # SQLite Database Logic
+├── report.py                  # Markdown Report Generator
+├── requirements.txt           # Python dependencies
+├── README.md                  # Project documentation
+├── proxies/
+│   └── main_educational.py    # Main proxy server engine
+├── analysis/
+│   └── explainer_db.py        # Vulnerability signature database
+├── certificates/
+│   ├── ca-cert.p12            # Root certificate for browser
+│   └── ca-key.pem             # Private key
+├── data/                      # Contains bugscope.db (SQLite)
+└── reports/                   # Generated security reports
 ```
+---
+
+## ⚠️ Legal & Ethical Use (MANDATORY)
+This software, Bugscope, is developed and provided strictly for educational, ethical hacking, and authorized security research purposes only.
+
+By downloading and using this tool, the user agrees to:
+
+1. **Use Bugscope only on systems they own** (e.g., localhost labs like OWASP Juice Shop).
+
+2. **Use Bugscope only on test targets where they have explicit, written permission** to conduct security testing.
+
+3. Comply with all applicable laws and regulations.
+
+**The author is not responsible for any misuse or illegal activity resulting from the use of this software.**
+
+---
+## 🙋‍♂️ Author
+**Project Author: Muhammad Aqib Tayyab**
+
+**LinkedIn: [Muhammad Aqib Tayyab](https://www.linkedin.com/in/muhammad-aqib-tayyab-ethical-hacker/)**
+
+**GitHub: [AqibTayyab](https://github.com/AqibTayyab)**
+
+---
