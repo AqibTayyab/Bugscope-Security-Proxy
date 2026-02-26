@@ -1,2 +1,9 @@
+# Core Proxy Dependencies
 cryptography>=41.0.0
 requests>=2.31.0
+
+# Web Dashboard Dependencies
+Flask>=3.0.0
+Werkzeug>=3.0.0
+
+# Note: sqlite3 and socket are built into Python Standard Library

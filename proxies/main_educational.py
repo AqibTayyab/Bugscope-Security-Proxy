@@ -1,4 +1,4 @@
-# main_educational.py - FINAL, ULTIMATE VERSION (Using Requests for All Traffic)
+# main_educational.py - FIXED VERSION (No Hangs + Noise Filter)
 
 import socket
 import ssl
@@ -11,43 +11,51 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 import os
 import tempfile
 from datetime import datetime, timezone, timedelta
-import json
 import sys
 import signal 
 from urllib.parse import urlparse 
 
-# Suppress the InsecureRequestWarning because we are intentionally MITM'ing self-signed certs
+# Suppress warnings
 requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 # ====================================================================
-# GLOBAL PATH SETUP (FIXED)
+# GLOBAL PATH SETUP
 # ====================================================================
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(SCRIPT_DIR) # Bugscope/
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR) 
+sys.path.append(PROJECT_ROOT)
+
+try:
+    import db_manager
+except ImportError:
+    sys.path.append(SCRIPT_DIR)
+    import db_manager
 
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data')
 CA_CERT_FILE = os.path.join(PROJECT_ROOT, 'certificates', 'ca-cert.pem')
 CA_KEY_FILE = os.path.join(PROJECT_ROOT, 'certificates', 'ca-key.pem')
 
-# Config (Listen on ALL interfaces to allow "Fake Stranger" access)
 PROXY_HOST = '0.0.0.0'
 PROXY_PORT = 8080
 
-# Fix import path for external run
-sys.path.append(PROJECT_ROOT)
+# NOISE FILTER: Domains to IGNORE completely
+IGNORED_DOMAINS = [
+    "mozilla", "firefox", "google", "gstatic", "googleapis", 
+    "telemetry", "push.services", "detectportal", "bing", "microsoft",
+    "acunetix", "visualwebsiteoptimizer", "geojs", "splide"
+]
 
-# Import from analysis directory
 try:
-    from analysis.explainer_db import EXPLAIN_DB, get_explanation
+    from analysis.explainer_db import get_explanation
     print("✅ Loaded vulnerability database")
-except ImportError as e:
-    print(f"❌ Error loading explainer_db: {e}")
-    EXPLAIN_DB = []
-    def get_explanation(hostname, path, method):
-        return None
+except ImportError:
+    try:
+        from explainer_db import get_explanation
+        print("✅ Loaded vulnerability database (local)")
+    except ImportError:
+        def get_explanation(h, p, m): return None
 
-# Verify and Load CA
 try:
     with open(CA_CERT_FILE, 'rb') as f:
         ca_cert = x509.load_pem_x509_certificate(f.read())
@@ -56,46 +64,29 @@ try:
     print("✅ CA certificates loaded successfully")
 except Exception as e:
     print(f"❌ Error loading certificates: {e}")
+    sys.exit(1)
 
-intercepted_endpoints = []
 certificate_cache = {}
+CURRENT_SESSION_ID = None 
 
 # ====================================================================
 # CORE FUNCTIONS
 # ====================================================================
 
-def save_session():
-    """Save session data (Uses globally defined DATA_DIR)"""
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
-    
-    if not intercepted_endpoints:
-        print("⚠️ No endpoints captured, nothing to save")
-        return
-    
-    filename = os.path.join(DATA_DIR, f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
-    
-    try:
-        with open(filename, 'w') as f:
-            json.dump(intercepted_endpoints, f, indent=2)
-        
-        endpoints_with_explanations = len([e for e in intercepted_endpoints if e.get('explanation')])
-        print(f"💾 Session saved: {len(intercepted_endpoints)} endpoints ({endpoints_with_explanations} with explanations)")
-        print(f"📁 File saved to: {filename}")
-    except Exception as e:
-        print(f"❌ Error saving session: {e}")
-
+def is_ignored_host(hostname):
+    """Check if host is background noise"""
+    if not hostname: return True
+    for domain in IGNORED_DOMAINS:
+        if domain in hostname.lower():
+            return True
+    return False
 
 def generate_cert(hostname):
-    """Generate certificate for hostname with caching"""
     if hostname in certificate_cache:
         return certificate_cache[hostname]
-    
     try:
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        
         subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, hostname)])
-        
         cert = (x509.CertificateBuilder()
             .subject_name(subject)
             .issuer_name(ca_cert.subject)
@@ -106,27 +97,61 @@ def generate_cert(hostname):
             .add_extension(x509.SubjectAlternativeName([x509.DNSName(hostname)]), critical=False)
             .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=True)
             .sign(ca_key, hashes.SHA256()))
-        
         cert_pem = cert.public_bytes(serialization.Encoding.PEM)
-        key_pem = key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.TraditionalOpenSSL,
-            encryption_algorithm=serialization.NoEncryption()
-        )
-        
+        key_pem = key.private_bytes(encoding=serialization.Encoding.PEM, format=serialization.PrivateFormat.TraditionalOpenSSL, encryption_algorithm=serialization.NoEncryption())
         certificate_cache[hostname] = (cert_pem, key_pem)
         return cert_pem, key_pem
-        
     except Exception as e:
         print(f"❌ Certificate generation error: {e}")
         raise
 
+def process_and_log(method, hostname, path):
+    """Analyzes request and logs to SQL Database"""
+    if CURRENT_SESSION_ID is None: return
+    
+    # FILTER: Don't log Mozilla/Google noise to DB
+    if is_ignored_host(hostname):
+        return
+
+    try:
+        traffic_id = db_manager.log_traffic(CURRENT_SESSION_ID, method, hostname, path)
+        explanation = get_explanation(hostname, path, method)
+        
+        if explanation:
+            print(f"   🔥 [VULN] {explanation['severity']}: {explanation['description']}")
+            test_str = explanation['tests'][0] if explanation.get('tests') else "Manual check required"
+            db_manager.log_vulnerability(
+                traffic_id=traffic_id,
+                severity=explanation['severity'],
+                description=explanation['description'],
+                test_case=test_str
+            )
+    except Exception as e:
+        print(f"❌ DB Log Error: {e}")
+
+def parse_raw_request(raw_data):
+    """Splits raw bytes into Headers (dict) and Body (bytes)"""
+    try:
+        parts = raw_data.split(b'\r\n\r\n', 1)
+        header_part = parts[0].decode('latin-1')
+        body = parts[1] if len(parts) > 1 else b""
+        
+        headers = {}
+        lines = header_part.split('\r\n')
+        # Skip first line (GET / HTTP/1.1)
+        for line in lines[1:]:
+            if ': ' in line:
+                key, value = line.split(': ', 1)
+                # Filter problematic headers for forwarding
+                if key.lower() not in ['host', 'content-length', 'content-encoding', 'transfer-encoding']:
+                    headers[key] = value
+        return headers, body
+    except Exception:
+        return {}, raw_data
 
 def handle_https_tunnel(client_socket, hostname):
-    """Handle HTTPS with improved explanations (Uses requests)"""
     try:
         cert_pem, key_pem = generate_cert(hostname)
-        
         with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pem') as cert_file:
             cert_file.write(cert_pem + key_pem)
             temp_cert_path = cert_file.name
@@ -135,261 +160,129 @@ def handle_https_tunnel(client_socket, hostname):
             context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
             context.load_cert_chain(temp_cert_path)
             ssl_socket = context.wrap_socket(client_socket, server_side=True)
-            
-            request_data = b""
-            ssl_socket.settimeout(2.0)
+            ssl_socket.settimeout(1.0) # Lower timeout for easier Ctrl+C
             
             try:
-                chunk = ssl_socket.recv(4096)
-                request_data = chunk
+                request_data = ssl_socket.recv(8192) # Increased buffer
             except socket.timeout:
-                pass
+                request_data = b""
             
             if request_data:
                 request_text = request_data.decode('utf-8', errors='ignore')
-                lines = request_text.split('\n')
-                
-                if lines and lines[0].strip():
-                    first_line = lines[0].strip()
-                    method = first_line.split(' ')[0] if ' ' in first_line else 'UNKNOWN'
+                first_line = request_text.split('\n')[0].strip()
+                if first_line:
+                    method = first_line.split(' ')[0]
                     path = first_line.split(' ')[1] if ' ' in first_line else '/'
                     
-                    print(f"🔓 [HTTPS] {method} {hostname}{path}")
+                    if not is_ignored_host(hostname):
+                        print(f"🔒 [HTTPS] {method} {hostname}{path}")
                     
-                    explanation = get_explanation(hostname, path, method)
-                    if explanation:
-                        print(f"   📚 {explanation['description']}")
-                        if explanation.get('tests'):
-                            print(f"   💡 Try: {explanation['tests'][0]}")
-                        if explanation.get('severity'):
-                            severity_icon = {
-                                'Critical': '🔥',
-                                'High': '🚨',
-                                'Medium': '⚠️',
-                                'Low': 'ℹ️'
-                            }.get(explanation['severity'], '📊')
-                            print(f"   {severity_icon} Severity: {explanation['severity']}")
-                    else:
-                        print(f"   ℹ️  General web traffic")
-                    
-                    endpoint = {
-                        'method': method,
-                        'host': hostname,
-                        'path': path,
-                        'timestamp': datetime.now().isoformat(),
-                        'explanation': explanation
-                    }
-                    intercepted_endpoints.append(endpoint)
+                    process_and_log(method, hostname, path)
+
+                    # FIX: Separate Headers and Body
+                    headers, body = parse_raw_request(request_data)
+                    url = f"https://{hostname}{path}"
                     
                     try:
-                        # Forwarding using requests
-                        url = f"https://{hostname}{path}"
-                        response = requests.request(method, url, data=request_data, timeout=5, verify=False) 
+                        response = requests.request(method, url, headers=headers, data=body, timeout=5, verify=False, allow_redirects=False)
                         
-                        # Send headers and content back to client
-                        response_line = f"HTTP/1.1 {response.status_code} {response.reason}\r\n"
-                        ssl_socket.send(response_line.encode())
-                        
-                        for header, value in response.headers.items():
-                            ssl_socket.send(f"{header}: {value}\r\n".encode())
-                        
+                        ssl_socket.send(f"HTTP/1.1 {response.status_code} {response.reason}\r\n".encode())
+                        for h, v in response.headers.items():
+                            if h.lower() not in ['transfer-encoding', 'content-encoding']:
+                                ssl_socket.send(f"{h}: {v}\r\n".encode())
                         ssl_socket.send(b"\r\n")
                         ssl_socket.send(response.content)
-                        
-                        print(f"   ✅ Response: {response.status_code}")
-                        
-                    except Exception as e:
-                        error_msg = f"HTTP/1.1 502 Bad Gateway\r\n\r\nError: {e}"
-                        ssl_socket.send(error_msg.encode())
-            
+                    except Exception:
+                        ssl_socket.send(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
             ssl_socket.close()
-            
         finally:
-            os.unlink(temp_cert_path)
-            
-    except Exception as e:
-        if 'SSLError' in str(e) or 'EOF' in str(e):
-             pass # Connection Reset/Socket Error are common/harmless here
-        else:
-             pass # Silently drop connection if external service is unstable
-
+            if os.path.exists(temp_cert_path):
+                try: os.unlink(temp_cert_path)
+                except: pass
+    except Exception:
+        pass
 
 def handle_client(client_socket):
-    """Handle client connection (FIXED: Using Requests for robust HTTP forwarding)"""
     try:
-        client_socket.settimeout(5.0)
-        request_bytes = client_socket.recv(4096)
-        if not request_bytes:
+        client_socket.settimeout(1.0) # Lower timeout
+        try:
+            request_bytes = client_socket.recv(8192)
+        except socket.timeout:
             return
-
+            
+        if not request_bytes: return
         request = request_bytes.decode('latin-1')
         first_line = request.split('\n')[0].strip()
 
         if first_line.startswith('CONNECT'):
-            # HTTPS Request: Handled by handle_https_tunnel
             hostname = first_line.split(' ')[1].split(':')[0]
-            print(f"🔒 [TUNNEL] Establishing HTTPS to: {hostname}")
-            
             client_socket.send(b"HTTP/1.1 200 Connection established\r\n\r\n")
             handle_https_tunnel(client_socket, hostname)
-            
         else:
-            # HTTP Request: Now properly forwarded via requests
-            
             parts = first_line.split(' ')
-            if len(parts) < 2:
-                client_socket.close()
-                return
-
-            method = parts[0]
-            path_with_protocol = parts[1] 
-
-            url_parts = urlparse(path_with_protocol)
+            if len(parts) < 2: return
+            method, path_url = parts[0], parts[1]
+            url_parts = urlparse(path_url)
             hostname = url_parts.netloc
             path = url_parts.path + ("?" + url_parts.query if url_parts.query else "")
-
+            
             if not hostname:
-                # Fallback using host header
                 for line in request.split('\n'):
                     if line.lower().startswith('host:'):
                         hostname = line.split(': ')[1].strip()
                         break
-                if not hostname:
-                    client_socket.sendall(b"HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n")
-                    return
             
-            print(f"🌐 [HTTP] {method} {hostname}{path}")
+            if not is_ignored_host(hostname):
+                print(f"🌐 [HTTP] {method} {hostname}{path}")
+            
+            process_and_log(method, hostname, path)
 
-            # Get educational analysis (for display and logging)
-            explanation = get_explanation(hostname, path, method)
-            if explanation:
-                print(f"   📚 {explanation['description']}")
-                print(f"   💡 Try: {explanation['tests'][0]}")
-
-            # Log endpoint
-            endpoint = {
-                'method': method,
-                'host': hostname,
-                'path': path_with_protocol,
-                'timestamp': datetime.now().isoformat(),
-                'explanation': explanation
-            }
-            intercepted_endpoints.append(endpoint)
-            
-            # --- FORWARDING REQUEST (CRITICAL FIX using requests) ---
-            
+            # FIX: Separate Headers and Body
+            headers, body = parse_raw_request(request_bytes)
             try:
-                # Construct the full, correct URL for requests
                 url = f"http://{hostname}{path}"
+                response = requests.request(method, url, headers=headers, data=body, timeout=5, allow_redirects=False)
                 
-                # Forward using requests—far more stable than raw sockets
-                # Data=request_bytes ensures POST bodies are forwarded
-                response = requests.request(method, url, data=request_bytes, timeout=5)
-                
-                # Send response back to client socket
-                response_line = f"HTTP/1.1 {response.status_code} {response.reason}\r\n"
-                client_socket.send(response_line.encode())
-                
-                # Forward headers
-                for header, value in response.headers.items():
-                    client_socket.send(f"{header}: {value}\r\n".encode())
-                
+                client_socket.send(f"HTTP/1.1 {response.status_code} {response.reason}\r\n".encode())
+                for h, v in response.headers.items():
+                    if h.lower() not in ['transfer-encoding', 'content-encoding']:
+                        client_socket.send(f"{h}: {v}\r\n".encode())
                 client_socket.send(b"\r\n")
                 client_socket.send(response.content)
-                
-                print(f"   ✅ Forwarded and returned response: {response.status_code}")
-                
-            except requests.exceptions.Timeout:
-                print(f"❌ Forwarding Error: Request timed out via requests.")
-                client_socket.sendall(b"HTTP/1.1 504 Gateway Timeout\r\nConnection: close\r\n\r\n")
-            except Exception as e:
-                # Catch connection failures, DNS errors, etc.
-                print(f"❌ Forwarding Error: {e}")
-                client_socket.sendall(b"HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\n\r\n")
-
-    except Exception as e:
-        if 'timed out' in str(e):
-            pass # Ignore simple timeouts
-        else:
-            pass # Ignore other simple socket exceptions
+            except Exception:
+                client_socket.send(b"HTTP/1.1 502 Bad Gateway\r\n\r\n")
+    except Exception:
+        pass
     finally:
-        try:
-            client_socket.close()
-        except:
-            pass
-
-
-# ====================================================================
-# CTRL+C SIGNAL HANDLER (FIXED)
-# ====================================================================
+        client_socket.close()
 
 def signal_handler(sig, frame):
-    """Handle Ctrl+C gracefully"""
-    global server 
-    print("\n" + "="*50)
-    print("🛑 Received shutdown signal (Ctrl+C)...")
-    print("Saving session and cleaning up...")
-    print("="*50)
-    
-    # Save session data 
-    save_session()
-    
-    # Close server socket
-    if 'server' in globals():
-        try:
-            server.close()
-            print("✅ Server socket closed")
-        except:
-            pass
-    
-    # Exit cleanly
-    print("\n🎯 Bugscope stopped successfully")
+    print("\n Shutting down Bugscope...")
     sys.exit(0)
 
-# Register signal handler
 signal.signal(signal.SIGINT, signal_handler)
 
-# ====================================================================
-# START PROXY SERVER
-# ====================================================================
+if __name__ == "__main__":
+    db_manager.init_db()
+    CURRENT_SESSION_ID = db_manager.create_session(target_host="Mixed/Lab")
+    print(f"✅ Session Started (ID: {CURRENT_SESSION_ID})")
 
-try:
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server.bind((PROXY_HOST, PROXY_PORT))
-    server.listen(10)
-    
-    print("\n" + "="*50)
-    print("✅ [READY] Bugscope Educational MITM Proxy")
-    print("="*50)
-    print("\n🎓 Final fix for loading websites applied!")
-    print("🌐 Proxy: 0.0.0.0:8080 (Use your IP in Firefox)")
-    print("🔥 Critical patterns: /login, /admin, /upload, /payment")
-    print("📚 Press Ctrl+C to save session and exit")
-    print("="*50 + "\n")
-    
-    while True:
-        try:
-            client_socket, addr = server.accept()
-            client_thread = threading.Thread(target=handle_client, args=(client_socket,))
-            client_thread.daemon = True 
-            client_thread.start()
-        except Exception as e:
-            if 'socket operation on non-socket' in str(e) or 'Bad file descriptor' in str(e):
+    try:
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind((PROXY_HOST, PROXY_PORT))
+        server.listen(20)
+        print(f"🚀 Bugscope Running on {PROXY_HOST}:{PROXY_PORT}")
+        print("📂 Logging to: data/bugscope.db")
+        print("🔇 Ignoring noise from: Mozilla, Google, Microsoft")
+        while True:
+            try:
+                server.settimeout(1.0) # Check for Ctrl+C every second
+                client_sock, _ = server.accept()
+                threading.Thread(target=handle_client, args=(client_sock,), daemon=True).start()
+            except socket.timeout:
+                continue
+            except KeyboardInterrupt:
                 break
-            # Ignore accept errors from sockets that close unexpectedly
-            pass
-            
-except KeyboardInterrupt:
-    pass 
-    
-except Exception as e:
-    print(f"❌ Fatal Server error (main block): {e}")
-    signal_handler(signal.SIGINT, None)
-
-finally:
-    if 'server' in globals():
-        try:
-            server.close()
-        except:
-            pass
+    except Exception as e:
+        print(f"❌ Startup Error: {e}")
