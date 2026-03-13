@@ -9,7 +9,7 @@
 
 ---
 
-## 🚀 What's New in Version 2.0 (The FYP Upgrade)
+## What's New in Version 2.0 (The FYP Upgrade)
 
 * **Relational Database (SQLite):** Replaced volatile JSON logging with a persistent, ACID-compliant SQLite database (`bugscope.db`) for historical auditing.
 * **Live Web Dashboard (Flask):** Added a real-time web UI to visualize intercepted traffic and highlight vulnerabilities instantly.
@@ -17,7 +17,7 @@
 * **Robust Core Engine:** Refactored the proxy to use the `requests` library, fixing outbound firewall blocks and 502 Bad Gateway errors.
 
 ---
-## 🛠️ Installation & Setup
+## Installation & Setup
 
 ### 1. Clone & Prepare the Environment
 Assuming you have Python 3.x and Git installed:
@@ -36,7 +36,7 @@ pip install -r requirements.txt
 3. Select the ```.p12``` file and check "Trust this CA to identify websites".
 
 ---
-## 💻 How to Run the System (Dual-Window Setup)
+## How to Run the System (Dual-Window Setup)
 Bugscope v2.0 uses a decoupled, professional architecture. You need two Command Prompts running simultaneously.
 
 ### Window 1: Start the Proxy Engine
@@ -53,7 +53,7 @@ python dashboard.py
 ```
 Open Chrome or Edge (without proxy settings) and navigate to ```http://127.0.0.1:5000``` to view live traffic and vulnerabilities as you browse.
 
-## 🐉 For Kali Linux / Debian Users
+## For Kali Linux / Debian Users
 ### Terminal 1: Start the Proxy Engine
 This captures the traffic and logs it to the database.
 ```Bash
